@@ -27,13 +27,20 @@ const ChatWindow: React.FC = () => {
   const { isMobile } = useResponsive();
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (currentChat) {
       fetchMessages(currentChat.participant._id);
       socketService.markMessagesRead(currentChat.participant._id);
+
+      // Auto-focus on input when chat is selected
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     }
   }, [currentChat, fetchMessages]);
 
@@ -51,16 +58,31 @@ const ChatWindow: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim() || !currentChat) return;
+    if (!messageText.trim() || !currentChat || isSending) return;
 
-    // Send message via socket
-    socketService.sendMessage(currentChat.participant._id, messageText.trim());
+    const messageContent = messageText.trim();
+
+    // Clear input immediately for better UX
     setMessageText('');
+    setIsSending(true);
 
-    // Stop typing indicator
-    if (isTyping) {
-      socketService.stopTyping(currentChat.participant._id);
-      setIsTyping(false);
+    try {
+      // Send message via socket (this will add optimistic message)
+      socketService.sendMessage(currentChat.participant._id, messageContent);
+
+      // Stop typing indicator
+      if (isTyping) {
+        socketService.stopTyping(currentChat.participant._id);
+        setIsTyping(false);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Restore message text on error
+      setMessageText(messageContent);
+    } finally {
+      setIsSending(false);
+      // Keep focus on input
+      inputRef.current?.focus();
     }
   };
 
@@ -191,17 +213,20 @@ const ChatWindow: React.FC = () => {
           </div>
         ) : (
           <AnimatePresence>
-            {messages.map((message, index) => (
-              <MessageBubble
-                key={message._id}
-                message={message}
-                isOwn={message.senderId._id === user?._id}
-                showAvatar={
-                  index === 0 ||
-                  messages[index - 1].senderId._id !== message.senderId._id
-                }
-              />
-            ))}
+            {messages.map((message, index) => {
+              // Check if we should show avatar (first message or different sender from previous)
+              const showAvatar =
+                index === 0 ||
+                messages[index - 1].senderId._id !== message.senderId._id;
+
+              return (
+                <MessageBubble
+                  key={message._id}
+                  message={message}
+                  showAvatar={showAvatar}
+                />
+              );
+            })}
           </AnimatePresence>
         )}
 
@@ -216,7 +241,7 @@ const ChatWindow: React.FC = () => {
             <img
               src={currentChat.participant.avatar || '/placeholder.svg'}
               alt={currentChat.participant.username}
-              className="w-8 h-8 rounded-full"
+              className="w-8 h-8 rounded-full flex-shrink-0"
             />
             <div
               className={`px-4 py-2 rounded-2xl rounded-bl-md ${
@@ -262,15 +287,17 @@ const ChatWindow: React.FC = () => {
         >
           <div className="flex-1">
             <textarea
+              ref={inputRef}
               value={messageText}
               onChange={handleInputChange}
               placeholder="Type a message..."
               rows={1}
+              disabled={isSending}
               className={`w-full px-4 py-3 rounded-2xl border resize-none transition-colors ${
                 isDark
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
                   : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-              } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
+              } focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50`}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -283,10 +310,14 @@ const ChatWindow: React.FC = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             type="submit"
-            disabled={!messageText.trim()}
+            disabled={!messageText.trim() || isSending}
             className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
           >
-            <Send className="w-5 h-5" />
+            {isSending ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-5 h-5" />
+            )}
           </motion.button>
         </form>
       </div>

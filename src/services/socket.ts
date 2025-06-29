@@ -52,7 +52,12 @@ class SocketService {
     });
 
     this.socket.on('chat_updated', () => {
-      useChatStore.getState().fetchChats();
+      // Only refresh chats if we're not in an active conversation
+      // to avoid disrupting the current chat experience
+      const { currentChat } = useChatStore.getState();
+      if (!currentChat) {
+        useChatStore.getState().fetchChats();
+      }
     });
 
     this.socket.on('messages_read', (data: { readBy: string }) => {
@@ -84,11 +89,45 @@ class SocketService {
 
     this.socket.on('error', (error: { message: string }) => {
       console.error('Socket error:', error.message);
+      // Handle message send failures by removing optimistic messages
+      this.handleMessageError();
     });
+  }
+
+  private handleMessageError() {
+    // Remove the most recent optimistic message on error
+    const { messages } = useChatStore.getState();
+    const lastMessage = messages[messages.length - 1];
+
+    if (lastMessage && lastMessage._id.startsWith('temp-')) {
+      const updatedMessages = messages.slice(0, -1);
+      useChatStore.setState({ messages: updatedMessages });
+    }
   }
 
   sendMessage(receiverId: string, content: string) {
     if (this.socket) {
+      const { user } = useAuthStore.getState();
+      const { currentChat } = useChatStore.getState();
+
+      if (!user || !currentChat) return;
+
+      // Add optimistic message immediately
+      useChatStore.getState().addOptimisticMessage({
+        senderId: {
+          _id: user._id,
+          username: user.username,
+          avatar: user.avatar,
+        },
+        receiverId: {
+          _id: currentChat.participant._id,
+          username: currentChat.participant.username,
+          avatar: currentChat.participant.avatar,
+        },
+        content,
+      });
+
+      // Send via socket
       this.socket.emit('send_message', { receiverId, content });
     }
   }

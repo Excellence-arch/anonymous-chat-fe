@@ -3,21 +3,25 @@
 import type React from 'react';
 import { motion } from 'framer-motion';
 import { useThemeStore } from '../../store/themeStore';
+import { useAuthStore } from '../../store/authStore';
 import type { Message } from '../../types';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Clock } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
-  isOwn: boolean;
   showAvatar: boolean;
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
-  isOwn,
   showAvatar,
 }) => {
   const { isDark } = useThemeStore();
+  const { user } = useAuthStore();
+
+  // Determine if this message is from the current user
+  const isOwn = message.senderId._id === user?._id;
+  const isOptimistic = message._id.startsWith('temp-');
 
   const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString([], {
@@ -35,7 +39,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         isOwn ? 'justify-end' : 'justify-start'
       }`}
     >
-      {/* Avatar for received messages */}
+      {/* Avatar for received messages (left side) */}
       {!isOwn && showAvatar && (
         <img
           src={message.senderId.avatar || '/placeholder.svg'}
@@ -54,7 +58,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         <div
           className={`px-4 py-2 rounded-2xl break-words ${
             isOwn
-              ? 'bg-blue-600 text-white rounded-br-md ml-auto'
+              ? `bg-blue-600 text-white rounded-br-md ml-auto ${
+                  isOptimistic ? 'opacity-70' : ''
+                }`
               : isDark
               ? 'bg-gray-700 text-white rounded-bl-md'
               : 'bg-gray-200 text-gray-900 rounded-bl-md'
@@ -76,7 +82,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           </span>
           {isOwn && (
             <div className={`${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              {message.isRead ? (
+              {isOptimistic ? (
+                <Clock className="w-3 h-3" />
+              ) : message.isRead ? (
                 <CheckCheck className="w-3 h-3 text-blue-500" />
               ) : (
                 <Check className="w-3 h-3" />
