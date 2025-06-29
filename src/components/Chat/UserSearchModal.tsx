@@ -21,7 +21,8 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
-  const { searchUsers, setCurrentChat, fetchChats } = useChatStore();
+  const { searchUsers, setCurrentChat, fetchChats, onlineUsers } =
+    useChatStore();
   const { isDark } = useThemeStore();
 
   // Load all users when modal opens
@@ -49,8 +50,11 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
 
   // Sort users: online first, then by username
   const sortedUsers = filteredUsers.sort((a, b) => {
-    if (a.isOnline && !b.isOnline) return -1;
-    if (!a.isOnline && b.isOnline) return 1;
+    const aIsOnline = onlineUsers.has(a._id) || a.isOnline;
+    const bIsOnline = onlineUsers.has(b._id) || b.isOnline;
+
+    if (aIsOnline && !bIsOnline) return -1;
+    if (!aIsOnline && bIsOnline) return 1;
     return a.username.localeCompare(b.username);
   });
 
@@ -90,12 +94,12 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className={`relative w-full max-w-md rounded-2xl shadow-xl ${
+            className={`relative w-full max-w-md max-h-[80vh] rounded-2xl shadow-xl ${
               isDark ? 'bg-gray-800' : 'bg-white'
             }`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <h3
                 className={`text-lg font-semibold ${
                   isDark ? 'text-white' : 'text-gray-900'
@@ -116,7 +120,7 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
             </div>
 
             {/* Search Input */}
-            <div className="p-6">
+            <div className="p-6 flex-shrink-0">
               <div className="relative">
                 <Search
                   className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
@@ -139,7 +143,7 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
             </div>
 
             {/* User List */}
-            <div className="max-h-80 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div
@@ -160,56 +164,60 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-1 p-2">
-                  {sortedUsers.map((user) => (
-                    <motion.div
-                      key={user._id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleUserSelect(user)}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <img
-                            src={user.avatar || '/placeholder.svg'}
-                            alt={user.username}
-                            className="w-10 h-10 rounded-full"
-                          />
-                          <div className="absolute -bottom-1 -right-1">
-                            <OnlineIndicator
-                              isOnline={user.isOnline}
-                              size="sm"
+                  {sortedUsers.map((user) => {
+                    const isOnline = onlineUsers.has(user._id) || user.isOnline;
+
+                    return (
+                      <motion.div
+                        key={user._id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleUserSelect(user)}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <img
+                              src={user.avatar || '/placeholder.svg'}
+                              alt={user.username}
+                              className="w-10 h-10 rounded-full"
                             />
+                            <div className="absolute -bottom-1 -right-1">
+                              <OnlineIndicator
+                                isOnline={isOnline}
+                                size="sm"
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <h4
-                              className={`font-medium ${
-                                isDark ? 'text-white' : 'text-gray-900'
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <h4
+                                className={`font-medium truncate ${
+                                  isDark ? 'text-white' : 'text-gray-900'
+                                }`}
+                              >
+                                {user.username}
+                              </h4>
+                              {isOnline && (
+                                <span className="text-xs text-green-500 font-medium">
+                                  Online
+                                </span>
+                              )}
+                            </div>
+                            <p
+                              className={`text-sm ${
+                                isDark ? 'text-gray-400' : 'text-gray-500'
                               }`}
                             >
-                              {user.username}
-                            </h4>
-                            {user.isOnline && (
-                              <span className="text-xs text-green-500 font-medium">
-                                Online
-                              </span>
-                            )}
+                              Anonymous user
+                            </p>
                           </div>
-                          <p
-                            className={`text-sm ${
-                              isDark ? 'text-gray-400' : 'text-gray-500'
-                            }`}
-                          >
-                            Anonymous user
-                          </p>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </div>

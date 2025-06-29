@@ -4,6 +4,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useThemeStore } from '../../store/themeStore';
+import { useResponsive } from '../../hooks/useResponsive';
 import { motion } from 'framer-motion';
 import { Search, Plus } from 'lucide-react';
 import UserSearchModal from './UserSearchModal';
@@ -16,28 +17,17 @@ const ChatList: React.FC = () => {
     setCurrentChat,
     fetchChats,
     loading,
-    showChatList,
     setShowChatList,
+    onlineUsers,
   } = useChatStore();
   const { isDark } = useThemeStore();
+  const { isMobile } = useResponsive();
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserSearch, setShowUserSearch] = useState(false);
 
   useEffect(() => {
     fetchChats();
   }, [fetchChats]);
-
-  // Handle responsive behavior
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        setShowChatList(true);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [setShowChatList]);
 
   const filteredChats = chats.filter((chat) =>
     chat.participant.username.toLowerCase().includes(searchQuery.toLowerCase())
@@ -62,7 +52,7 @@ const ChatList: React.FC = () => {
   const handleChatSelect = (chat: any) => {
     setCurrentChat(chat);
     // On mobile, hide chat list when selecting a chat
-    if (window.innerWidth < 768) {
+    if (isMobile) {
       setShowChatList(false);
     }
   };
@@ -70,16 +60,14 @@ const ChatList: React.FC = () => {
   return (
     <div
       className={`
-        ${showChatList ? 'flex' : 'hidden'} 
-        md:flex 
-        w-full md:w-80 
+        w-full h-full
         border-r 
-        flex-col 
+        flex flex-col 
         ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
       `}
     >
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2
             className={`text-lg font-semibold ${
@@ -151,76 +139,82 @@ const ChatList: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-1 p-2">
-            {filteredChats.map((chat) => (
-              <motion.div
-                key={chat.chatId}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleChatSelect(chat)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  currentChat?.chatId === chat.chatId
-                    ? isDark
-                      ? 'bg-blue-600/20 border border-blue-500/30'
-                      : 'bg-blue-50 border border-blue-200'
-                    : isDark
-                    ? 'hover:bg-gray-700'
-                    : 'hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <img
-                      src={chat.participant.avatar || '/placeholder.svg'}
-                      alt={chat.participant.username}
-                      className="w-12 h-12 rounded-full"
-                    />
-                    <div className="absolute -bottom-1 -right-1">
-                      <OnlineIndicator
-                        isOnline={chat.participant.isOnline}
-                        size="sm"
-                      />
-                    </div>
-                    {chat.unreadCount > 0 && (
-                      <div className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
-                      </div>
-                    )}
-                  </div>
+            {filteredChats.map((chat) => {
+              const isOnline =
+                onlineUsers.has(chat.participant._id) ||
+                chat.participant.isOnline;
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3
-                        className={`font-medium truncate ${
-                          isDark ? 'text-white' : 'text-gray-900'
-                        }`}
-                      >
-                        {chat.participant.username}
-                      </h3>
-                      <span
-                        className={`text-xs ${
-                          isDark ? 'text-gray-400' : 'text-gray-500'
-                        }`}
-                      >
-                        {formatTime(chat.lastMessageTime)}
-                      </span>
+              return (
+                <motion.div
+                  key={chat.chatId}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleChatSelect(chat)}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                    currentChat?.chatId === chat.chatId
+                      ? isDark
+                        ? 'bg-blue-600/20 border border-blue-500/30'
+                        : 'bg-blue-50 border border-blue-200'
+                      : isDark
+                      ? 'hover:bg-gray-700'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="relative">
+                      <img
+                        src={chat.participant.avatar || '/placeholder.svg'}
+                        alt={chat.participant.username}
+                        className="w-12 h-12 rounded-full"
+                      />
+                      <div className="absolute -bottom-1 -right-1">
+                        <OnlineIndicator
+                          isOnline={isOnline}
+                          size="sm"
+                        />
+                      </div>
+                      {chat.unreadCount > 0 && (
+                        <div className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
+                        </div>
+                      )}
                     </div>
-                    <p
-                      className={`text-sm truncate ${
-                        chat.unreadCount > 0
-                          ? isDark
-                            ? 'text-white'
-                            : 'text-gray-900'
-                          : isDark
-                          ? 'text-gray-400'
-                          : 'text-gray-500'
-                      }`}
-                    >
-                      {chat.lastMessage || 'No messages yet'}
-                    </p>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3
+                          className={`font-medium truncate ${
+                            isDark ? 'text-white' : 'text-gray-900'
+                          }`}
+                        >
+                          {chat.participant.username}
+                        </h3>
+                        <span
+                          className={`text-xs ${
+                            isDark ? 'text-gray-400' : 'text-gray-500'
+                          }`}
+                        >
+                          {formatTime(chat.lastMessageTime)}
+                        </span>
+                      </div>
+                      <p
+                        className={`text-sm truncate ${
+                          chat.unreadCount > 0
+                            ? isDark
+                              ? 'text-white'
+                              : 'text-gray-900'
+                            : isDark
+                            ? 'text-gray-400'
+                            : 'text-gray-500'
+                        }`}
+                      >
+                        {chat.lastMessage || 'No messages yet'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>

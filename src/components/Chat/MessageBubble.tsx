@@ -1,67 +1,92 @@
-"use client"
+'use client';
 
-import type React from "react"
-import { motion } from "framer-motion"
-import { useThemeStore } from "../../store/themeStore"
-import type { Message } from "../../types"
-import { Check, CheckCheck } from "lucide-react"
+import type React from 'react';
+import { motion } from 'framer-motion';
+import { useThemeStore } from '../../store/themeStore';
+import type { Message } from '../../types';
+import { Check, CheckCheck } from 'lucide-react';
 
 interface MessageBubbleProps {
-  message: Message
-  isOwn: boolean
-  showAvatar: boolean
+  message: Message;
+  isOwn: boolean;
+  showAvatar: boolean;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn, showAvatar }) => {
-  const { isDark } = useThemeStore()
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  isOwn,
+  showAvatar,
+}) => {
+  const { isDark } = useThemeStore();
 
   const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
+    return new Date(date).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className={`flex items-end space-x-2 ${isOwn ? "justify-end" : "justify-start"}`}
+      className={`flex items-end space-x-2 ${
+        isOwn ? 'justify-end' : 'justify-start'
+      }`}
     >
+      {/* Avatar for received messages */}
       {!isOwn && showAvatar && (
         <img
-          src={message.senderId.avatar || "/placeholder.svg"}
+          src={message.senderId.avatar || '/placeholder.svg'}
           alt={message.senderId.username}
-          className="w-8 h-8 rounded-full"
+          className="w-8 h-8 rounded-full flex-shrink-0"
         />
       )}
 
-      {!isOwn && !showAvatar && <div className="w-8" />}
+      {/* Spacer when avatar is not shown */}
+      {!isOwn && !showAvatar && <div className="w-8 flex-shrink-0" />}
 
-      <div className={`max-w-xs lg:max-w-md ${isOwn ? "order-1" : "order-2"}`}>
+      {/* Message content */}
+      <div
+        className={`max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl`}
+      >
         <div
-          className={`px-4 py-2 rounded-2xl ${
+          className={`px-4 py-2 rounded-2xl break-words ${
             isOwn
-              ? "bg-blue-600 text-white rounded-br-md"
+              ? 'bg-blue-600 text-white rounded-br-md ml-auto'
               : isDark
-                ? "bg-gray-700 text-white rounded-bl-md"
-                : "bg-gray-200 text-gray-900 rounded-bl-md"
+              ? 'bg-gray-700 text-white rounded-bl-md'
+              : 'bg-gray-200 text-gray-900 rounded-bl-md'
           }`}
         >
-          <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         </div>
 
-        <div className={`flex items-center mt-1 space-x-1 ${isOwn ? "justify-end" : "justify-start"}`}>
-          <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+        {/* Message metadata */}
+        <div
+          className={`flex items-center mt-1 space-x-1 ${
+            isOwn ? 'justify-end' : 'justify-start'
+          }`}
+        >
+          <span
+            className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+          >
             {formatTime(message.timestamp)}
           </span>
           {isOwn && (
-            <div className={`${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              {message.isRead ? <CheckCheck className="w-3 h-3 text-blue-500" /> : <Check className="w-3 h-3" />}
+            <div className={`${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              {message.isRead ? (
+                <CheckCheck className="w-3 h-3 text-blue-500" />
+              ) : (
+                <Check className="w-3 h-3" />
+              )}
             </div>
           )}
         </div>
       </div>
     </motion.div>
-  )
-}
+  );
+};
 
-export default MessageBubble
+export default MessageBubble;

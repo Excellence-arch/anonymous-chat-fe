@@ -5,11 +5,13 @@ import { chatAPI } from '../services/api';
 interface ExtendedChatState extends ChatState {
   showChatList: boolean;
   typingUsers: Record<string, boolean>;
+  onlineUsers: Set<string>;
   setShowChatList: (show: boolean) => void;
   addMessage: (message: Message) => void;
   markMessagesAsRead: (userId: string) => void;
   updateUserStatus: (userId: string, isOnline: boolean) => void;
   setUserTyping: (userId: string, isTyping: boolean) => void;
+  setOnlineUsers: (userIds: string[]) => void;
 }
 
 export const useChatStore = create<ExtendedChatState>((set, get) => ({
@@ -19,6 +21,7 @@ export const useChatStore = create<ExtendedChatState>((set, get) => ({
   loading: false,
   showChatList: true,
   typingUsers: {},
+  onlineUsers: new Set(),
 
   setShowChatList: (show: boolean) => {
     set({ showChatList: show });
@@ -28,7 +31,6 @@ export const useChatStore = create<ExtendedChatState>((set, get) => ({
     set({
       currentChat: chat,
       messages: [],
-      showChatList: window.innerWidth >= 768, // Keep chat list open on desktop
     });
   },
 
@@ -54,7 +56,15 @@ export const useChatStore = create<ExtendedChatState>((set, get) => ({
   },
 
   updateUserStatus: (userId: string, isOnline: boolean) => {
-    const { chats, currentChat } = get();
+    const { chats, currentChat, onlineUsers } = get();
+
+    // Update online users set
+    const newOnlineUsers = new Set(onlineUsers);
+    if (isOnline) {
+      newOnlineUsers.add(userId);
+    } else {
+      newOnlineUsers.delete(userId);
+    }
 
     // Update chats
     const updatedChats = chats.map((chat) =>
@@ -72,7 +82,11 @@ export const useChatStore = create<ExtendedChatState>((set, get) => ({
           }
         : currentChat;
 
-    set({ chats: updatedChats, currentChat: updatedCurrentChat });
+    set({
+      chats: updatedChats,
+      currentChat: updatedCurrentChat,
+      onlineUsers: newOnlineUsers,
+    });
   },
 
   setUserTyping: (userId: string, isTyping: boolean) => {
@@ -82,6 +96,10 @@ export const useChatStore = create<ExtendedChatState>((set, get) => ({
         [userId]: isTyping,
       },
     }));
+  },
+
+  setOnlineUsers: (userIds: string[]) => {
+    set({ onlineUsers: new Set(userIds) });
   },
 
   fetchChats: async () => {

@@ -70,6 +70,7 @@ import LoginForm from './components/Auth/LoginForm';
 import RegisterForm from './components/Auth/RegisterForm';
 import ChatPage from './components/Chat/ChatPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import LandingPage from './components/LandingPage';
 
 function App() {
   const { isDark } = useThemeStore();
@@ -107,6 +108,10 @@ function App() {
       >
         <Routes>
           <Route
+            path="/home"
+            element={<LandingPage />}
+          />
+          <Route
             path="/login"
             element={
               isAuthenticated ? (
@@ -139,10 +144,14 @@ function App() {
             <Route
               index
               element={
-                <Navigate
-                  to="/chat"
-                  replace
-                />
+                isAuthenticated ? (
+                  <Navigate
+                    to="/chat"
+                    replace
+                  />
+                ) : (
+                  <LandingPage />
+                )
               }
             />
             <Route
