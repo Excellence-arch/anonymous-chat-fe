@@ -8,6 +8,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { Search, X } from 'lucide-react';
 import OnlineIndicator from './OnlineIndicator';
 import type { User } from '../../types';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface UserSearchModalProps {
   isOpen: boolean;
@@ -21,9 +22,15 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
-  const { searchUsers, setCurrentChat, fetchChats, onlineUsers } =
-    useChatStore();
+  const {
+    searchUsers,
+    setCurrentChat,
+    fetchChats,
+    onlineUsers,
+    setShowChatList,
+  } = useChatStore();
   const { isDark } = useThemeStore();
+  const { isMobile } = useResponsive();
 
   // Load all users when modal opens
   useEffect(() => {
@@ -68,6 +75,12 @@ const UserSearchModal: React.FC<UserSearchModalProps> = ({
     };
 
     setCurrentChat(newChat);
+
+    // On mobile, hide chat list to show chat window
+    if (isMobile) {
+      setShowChatList(false);
+    }
+
     fetchChats(); // Refresh chats to get the actual chat if it exists
     onClose();
   };
