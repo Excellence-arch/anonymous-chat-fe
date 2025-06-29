@@ -1,64 +1,125 @@
-import { create } from "zustand"
-import type { ChatState, Chat, User } from "../types"
-import { chatAPI } from "../services/api"
+import { create } from 'zustand';
+import type { ChatState, Chat, User, Message } from '../types';
+import { chatAPI } from '../services/api';
 
-export const useChatStore = create<ChatState>((set, get) => ({
+interface ExtendedChatState extends ChatState {
+  showChatList: boolean;
+  typingUsers: Record<string, boolean>;
+  setShowChatList: (show: boolean) => void;
+  addMessage: (message: Message) => void;
+  markMessagesAsRead: (userId: string) => void;
+  updateUserStatus: (userId: string, isOnline: boolean) => void;
+  setUserTyping: (userId: string, isTyping: boolean) => void;
+}
+
+export const useChatStore = create<ExtendedChatState>((set, get) => ({
   chats: [],
   currentChat: null,
   messages: [],
   loading: false,
+  showChatList: true,
+  typingUsers: {},
+
+  setShowChatList: (show: boolean) => {
+    set({ showChatList: show });
+  },
 
   setCurrentChat: (chat: Chat | null) => {
-    set({ currentChat: chat, messages: [] })
+    set({
+      currentChat: chat,
+      messages: [],
+      showChatList: window.innerWidth >= 768, // Keep chat list open on desktop
+    });
+  },
+
+  addMessage: (message: Message) => {
+    const { currentChat, messages } = get();
+
+    // Only add message if it's for the current chat
+    if (
+      currentChat &&
+      (message.senderId._id === currentChat.participant._id ||
+        message.receiverId._id === currentChat.participant._id)
+    ) {
+      set({ messages: [...messages, message] });
+    }
+  },
+
+  markMessagesAsRead: (userId: string) => {
+    const { messages } = get();
+    const updatedMessages = messages.map((msg) =>
+      msg.receiverId._id === userId ? { ...msg, isRead: true } : msg
+    );
+    set({ messages: updatedMessages });
+  },
+
+  updateUserStatus: (userId: string, isOnline: boolean) => {
+    const { chats, currentChat } = get();
+
+    // Update chats
+    const updatedChats = chats.map((chat) =>
+      chat.participant._id === userId
+        ? { ...chat, participant: { ...chat.participant, isOnline } }
+        : chat
+    );
+
+    // Update current chat
+    const updatedCurrentChat =
+      currentChat && currentChat.participant._id === userId
+        ? {
+            ...currentChat,
+            participant: { ...currentChat.participant, isOnline },
+          }
+        : currentChat;
+
+    set({ chats: updatedChats, currentChat: updatedCurrentChat });
+  },
+
+  setUserTyping: (userId: string, isTyping: boolean) => {
+    set((state) => ({
+      typingUsers: {
+        ...state.typingUsers,
+        [userId]: isTyping,
+      },
+    }));
   },
 
   fetchChats: async () => {
     try {
-      set({ loading: true })
-      const response = await chatAPI.getChats()
-      set({ chats: response.data.chats })
+      set({ loading: true });
+      const response = await chatAPI.getChats();
+      set({ chats: response.data.chats });
     } catch (error) {
-      console.error("Failed to fetch chats:", error)
+      console.error('Failed to fetch chats:', error);
     } finally {
-      set({ loading: false })
+      set({ loading: false });
     }
   },
 
   fetchMessages: async (userId: string) => {
     try {
-      set({ loading: true })
-      const response = await chatAPI.getChatHistory(userId)
-      set({ messages: response.data.messages })
+      set({ loading: true });
+      const response = await chatAPI.getChatHistory(userId);
+      set({ messages: response.data.messages });
     } catch (error) {
-      console.error("Failed to fetch messages:", error)
+      console.error('Failed to fetch messages:', error);
     } finally {
-      set({ loading: false })
+      set({ loading: false });
     }
   },
 
   sendMessage: async (receiverId: string, content: string) => {
-    try {
-      const response = await chatAPI.sendMessage(receiverId, content)
-      const newMessage = response.data.data
-
-      set((state) => ({
-        messages: [...state.messages, newMessage],
-      }))
-
-      // Refresh chats to update last message
-      get().fetchChats()
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || "Failed to send message")
-    }
+    // This will be handled by socket now
+    // The socket service will emit the message
   },
 
-  searchUsers: async (query: string): Promise<User[]> => {
+  searchUsers: async (query = ''): Promise<User[]> => {
     try {
-      const response = await chatAPI.searchUsers(query)
-      return response.data.users
+      const response = await chatAPI.searchUsers(query);
+      return response.data.users;
     } catch (error) {
-      console.error("Failed to search users:", error)
-      return []
+      console.error('Failed to search users:', error);
+      return [];
     }
   },
-}))
+}));
